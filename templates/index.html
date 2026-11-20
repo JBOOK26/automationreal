@@ -1,39 +1,564 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-    <title>Router Automation</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Router Automation | RouterOps</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --page: #f4f6fa;
+            --surface: #fff;
+            --line: #e0e6ef;
+            --text: #14213a;
+            --muted: #53627b;
+            --accent: #2454d8;
+            --accent-tint: #ecf2ff;
+            --mono: "Cascadia Code", Consolas, "Liberation Mono", monospace;
+            font-family: "Segoe UI", system-ui, sans-serif;
+            color: var(--text);
+            background: var(--page);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+        body, h1, h2, p, ol, pre { margin: 0; }
+        a { color: inherit; text-decoration: none; }
+        button { font: inherit; }
+        :focus-visible { outline: 3px solid #4777f5; outline-offset: 4px; }
+        [id] { scroll-margin-block: 1rem; }
+
+        .shell {
+            display: grid;
+            grid-template-columns: 14rem minmax(0, 1fr);
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 0;
+            display: flex;
+            flex-direction: column;
+            align-self: start;
+            height: 100vh;
+            height: 100dvh;
+            padding: 1.5rem 1rem 1.25rem;
+            background: var(--surface);
+            border-right: 1px solid var(--line);
+        }
+
+        .brand, .engine, .nav-link {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+        }
+
+        .brand { margin: 0 .375rem; width: fit-content; }
+        .brand strong { display: block; font-size: 1.125rem; letter-spacing: -.035em; line-height: 1.15; }
+        .brand small, .engine small { display: block; margin-top: .2rem; color: var(--muted); font-size: .75rem; }
+
+        .brand-mark, .engine-mark {
+            display: grid;
+            flex: 0 0 auto;
+            width: 2.375rem;
+            height: 2.375rem;
+            place-items: center;
+            border-radius: .7rem;
+        }
+
+        .brand-mark {
+            color: white;
+            background: linear-gradient(145deg, #3b6bed, #224acc);
+            box-shadow: 0 3px 7px #224acc30;
+        }
+
+        .navigation { margin-top: 2.375rem; }
+        .nav-label {
+            margin: 0 .75rem .625rem;
+            color: var(--muted);
+            font-size: .75rem;
+            font-weight: 650;
+            letter-spacing: .085em;
+            text-transform: uppercase;
+        }
+
+        .nav-link {
+            min-height: 2.75rem;
+            padding: .55rem .75rem;
+            border-radius: .55rem;
+            color: var(--muted);
+            font-size: .9375rem;
+            font-weight: 600;
+        }
+
+        .nav-link + .nav-link { margin-top: .25rem; }
+        .nav-link:hover { background: #f3f6fb; color: var(--text); }
+        .nav-link[aria-current="location"] { background: var(--accent-tint); color: var(--accent); }
+        .engine { margin-top: auto; padding: 1rem .375rem 0; border-top: 1px solid var(--line); }
+        .engine-mark { width: 2.125rem; height: 2.125rem; background: #edf1f7; color: #465976; }
+        .engine strong { display: block; font-size: .875rem; line-height: 1.2; }
+
+        .topbar { background: var(--surface); border-bottom: 1px solid var(--line); }
+        .topbar-inner, .workspace { max-width: 83.5rem; margin-inline: auto; padding-inline: clamp(1.25rem, 3vw, 2.75rem); }
+        .topbar-inner { display: flex; min-height: 4.25rem; align-items: center; justify-content: space-between; gap: 1rem; }
+        .breadcrumb { display: flex; align-items: center; gap: .65rem; color: var(--muted); font-size: .875rem; }
+        .breadcrumb strong { color: var(--text); font-weight: 650; }
+        .breadcrumb-divider { width: 1px; height: .75rem; background: #acb9cc; transform: rotate(20deg); }
+
+        .platform, .count {
+            display: inline-flex;
+            flex: 0 0 auto;
+            align-items: center;
+            gap: .45rem;
+            padding: .35rem .65rem;
+            border: 1px solid var(--line);
+            border-radius: .5rem;
+            color: #41536d;
+            background: #f8faff;
+            font-size: .8125rem;
+            font-weight: 650;
+        }
+
+        .platform .icon { color: var(--accent); }
+        .platform-separator { width: .2rem; height: .2rem; border-radius: 50%; background: #687b9a; }
+        .workspace { padding-block: 2.125rem 2.5rem; }
+        .page-heading h1 { font-size: clamp(2rem, 3.4vw, 2.625rem); font-weight: 700; letter-spacing: -.04em; line-height: 1.13; }
+        .page-heading p { margin-top: .5rem; color: var(--muted); line-height: 1.55; }
+
+        .hero {
+            position: relative;
+            isolation: isolate;
+            overflow: hidden;
+            margin-block: 1.625rem 1.5rem;
+            padding: clamp(1.5rem, 3vw, 2rem);
+            border: 1px solid #1c3156;
+            border-radius: 1rem;
+            color: #f7f9ff;
+            background: radial-gradient(ellipse at 81% 40%, #1a3769, transparent 53%), linear-gradient(110deg, #162746, #101b32 72%);
+            box-shadow: 0 7px 18px #17294b16;
+        }
+
+        .hero-body { position: relative; z-index: 1; max-width: 32rem; }
+        .run-status {
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            padding: .35rem .65rem;
+            border: 1px solid #769dff47;
+            border-radius: 2rem;
+            color: #d4e2ff;
+            background: #34568f4d;
+            font-size: .8125rem;
+            font-weight: 600;
+        }
+
+        .run-status::before {
+            content: "";
+            width: .425rem;
+            height: .425rem;
+            border-radius: 50%;
+            background: #8bb1ff;
+            box-shadow: 0 0 9px #8bb1ffaa;
+        }
+
+        .run-status[data-state="complete"]::before { background: #70e2ac; box-shadow: 0 0 9px #70e2ac80; }
+        .run-status[data-state="failed"]::before { background: #ff9ca8; box-shadow: 0 0 9px #ff9ca880; }
+        .hero h2 { margin-top: .75rem; font-size: clamp(1.625rem, 2.8vw, 2.125rem); letter-spacing: -.035em; line-height: 1.16; }
+        .hero-description { margin-top: .625rem; color: #c0cde4; line-height: 1.5; }
+        .hero form { margin-top: 1.5rem; }
+
+        .connect-button {
+            display: inline-flex;
+            min-height: 2.875rem;
+            align-items: center;
+            justify-content: center;
+            gap: .6rem;
+            padding: .6rem 1rem;
+            border: 1px solid #6b91ff;
+            border-radius: .55rem;
+            color: white;
+            background: #2a57dc;
+            box-shadow: 0 4px 15px #0b122a55;
+            font-size: .9375rem;
+            font-weight: 650;
+            cursor: pointer;
+        }
+
+        .connect-button:hover:not(:disabled) { background: #234ac1; border-color: #a1bbff; }
+        .connect-button:focus-visible { outline-color: #b5caff; }
+        .connect-button:disabled { color: #e2eaff; background: #29478d; cursor: wait; }
+        .connect-button:disabled .icon::before {
+            inset: 0;
+            width: 1rem;
+            height: 1rem;
+            margin: auto;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            transform: none;
+            animation: spin .8s linear infinite;
+        }
+
+        .connect-button:disabled .icon::after { content: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .network-art {
+            position: absolute;
+            inset: 0 0 0 auto;
+            width: 52%;
+            pointer-events: none;
+        }
+
+        .network-art::before {
+            position: absolute;
+            inset: 0;
+            content: "";
+            background: linear-gradient(90deg, #7da8ff19 1px, transparent 1px), linear-gradient(#7da8ff19 1px, transparent 1px);
+            background-size: 1.625rem 1.625rem;
+            mask-image: radial-gradient(ellipse at 62% 50%, black 15%, transparent 76%);
+        }
+
+        .network-map { position: absolute; top: 50%; right: clamp(.5rem, 3vw, 3rem); width: 24rem; height: 13rem; transform: translateY(-50%); }
+        .wire { position: absolute; border: 0 solid #6197f3; }
+        .wire-top { top: 25%; left: 17%; width: 28%; height: 24%; border-width: 1px 1px 0 0; border-radius: 0 .625rem 0 0; }
+        .wire-bottom { top: 51%; left: 25%; width: 19%; height: 26%; border-width: 0 1px 1px 0; border-radius: 0 0 .625rem 0; }
+        .wire-right { top: 50%; left: 67%; width: 24%; height: 24%; border-width: 1px 1px 0 0; border-radius: 0 .625rem 0 0; }
+
+        .network-node, .network-router {
+            position: absolute;
+            display: grid;
+            place-items: center;
+            color: #b8d1ff;
+            border: 1px solid #6692e3;
+            background: #182e55;
+            box-shadow: inset 0 1px 0 #b9d4ff29, 0 0 1.25rem #2a66d44a;
+        }
+
+        .network-node { width: 2.625rem; height: 2.25rem; border-radius: .55rem; }
+        .node-top { top: 25%; left: 13%; transform: translate(-50%, -50%); }
+        .node-bottom { top: 77%; left: 22%; transform: translate(-50%, -50%); }
+        .node-right { top: 74%; left: 91%; transform: translate(-50%, -50%); }
+
+        .network-router {
+            top: 50%;
+            left: 56%;
+            display: flex;
+            justify-content: space-between;
+            gap: .75rem;
+            width: 8rem;
+            height: 3.5rem;
+            padding: .75rem .875rem;
+            border-radius: .7rem;
+            background: linear-gradient(145deg, #345c9e, #203c6f);
+            box-shadow: inset 0 1px 0 #c2dbff50, 0 0 2rem #5085f15c, 0 0 0 .4rem #739ef51c;
+            transform: translate(-50%, -50%);
+        }
+
+        .network-router .icon { transform: scale(1.25); }
+        .router-ports { display: flex; gap: .25rem; }
+        .router-ports i { width: .55rem; height: .5rem; border: 1px solid #8eb4f9; border-top: 2px solid #a0c6ff; border-radius: .14rem; background: #172c54; }
+        .router-ports i:first-child { border-color: #a6d6ff; background: #63b7ff; box-shadow: 0 0 .55rem #65b7ff; }
+
+        .cards { display: grid; grid-template-columns: minmax(0, 1.9fr) minmax(17rem, 1fr); align-items: start; gap: 1.25rem; }
+        .card { min-width: 0; border: 1px solid var(--line); border-radius: .875rem; background: var(--surface); box-shadow: 0 2px 5px #243a6810; }
+        .output-card { display: flex; flex-direction: column; align-self: stretch; }
+        .card-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: .75rem; padding: 1.25rem 1.375rem; border-bottom: 1px solid var(--line); }
+        .card-heading h2 { font-size: 1.25rem; letter-spacing: -.025em; line-height: 1.25; }
+        .card-heading p { margin-top: .3rem; color: var(--muted); font-size: .875rem; line-height: 1.45; }
+        .count { padding: .3rem .55rem; border-radius: 2rem; white-space: nowrap; }
+
+        .empty-state {
+            display: grid;
+            flex: 1;
+            min-height: 15.875rem;
+            place-content: center;
+            justify-items: center;
+            gap: .5rem;
+            padding: 1.625rem 1.25rem;
+            text-align: center;
+        }
+
+        .empty-icon {
+            display: grid;
+            width: 3.25rem;
+            height: 3.25rem;
+            margin-bottom: .375rem;
+            place-items: center;
+            border: 1px solid #dce6ff;
+            border-radius: .875rem;
+            color: var(--accent);
+            background: var(--accent-tint);
+        }
+
+        .empty-icon .icon { transform: scale(1.25); }
+        .empty-state strong { font-weight: 650; }
+        .empty-state p { max-width: 22rem; color: var(--muted); font-size: .9375rem; line-height: 1.5; }
+        .command-list { padding: 0 1.375rem; list-style: none; }
+        .command-list li { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .75rem; padding-block: .875rem; }
+        .command-list li + li { border-top: 1px solid var(--line); }
+        .command-order { display: grid; width: 1.875rem; height: 1.875rem; place-items: center; border: 1px solid #dfe8ff; border-radius: .45rem; color: var(--accent); background: var(--accent-tint); font: 600 .8125rem var(--mono); }
+        .command-list code, summary code { font-family: var(--mono); font-size: .875rem; font-weight: 600; overflow-wrap: anywhere; }
+        .command-list p { margin-top: .25rem; color: var(--muted); font-size: .8125rem; line-height: 1.4; }
+        .queue-footer { display: flex; align-items: center; gap: .45rem; padding: .8rem 1.375rem; border-top: 1px solid var(--line); border-radius: 0 0 .875rem .875rem; color: var(--muted); background: #f8faff; font-size: .8125rem; }
+        .queue-footer .icon { color: var(--accent); }
+
+        .connection-error { display: flex; align-items: flex-start; gap: .75rem; margin-bottom: 1.5rem; padding: 1rem 1.25rem; border: 1px solid #f2c7cd; border-radius: .75rem; color: #802339; background: #fff2f4; overflow-wrap: anywhere; }
+        .connection-error .icon { margin-top: .125rem; }
+        .connection-error strong { display: block; }
+        .connection-error p { margin-top: .25rem; font-size: .9375rem; line-height: 1.45; white-space: pre-wrap; }
+        .result-list { display: grid; gap: .625rem; padding: 1rem; }
+        .result { min-width: 0; border: 1px solid var(--line); border-radius: .55rem; background: #f8faff; }
+        .result summary { display: flex; align-items: center; gap: .65rem; min-height: 2.75rem; padding: .6rem .8rem; border-radius: .55rem; list-style: none; cursor: pointer; }
+        .result summary::-webkit-details-marker { display: none; }
+        .result summary:hover { background: var(--accent-tint); }
+        .result summary .icon { color: var(--accent); }
+        .result summary::after { content: ""; flex: 0 0 auto; width: .45rem; height: .45rem; margin-left: auto; border: solid var(--muted); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
+        .result[open] summary { border-radius: .55rem .55rem 0 0; }
+        .result[open] summary::after { transform: rotate(225deg); }
+        .result pre { max-height: 23rem; overflow: auto; padding: .875rem 1rem; border-radius: 0 0 .5rem .5rem; color: #e4edff; background: #101b32; scrollbar-color: #6587c5 #192842; font: .875rem/1.6 var(--mono); tab-size: 4; }
+        .result pre code { font: inherit; }
+        .result pre:focus-visible { outline-offset: -3px; }
+
+        .icon { position: relative; display: inline-block; flex: 0 0 auto; width: 1rem; height: 1rem; }
+        .icon::before, .icon::after { position: absolute; display: block; content: ""; }
+        .icon-grid::before { top: 1px; left: 1px; width: 6px; height: 6px; border-radius: 1px; background: currentColor; box-shadow: 8px 0 currentColor, 0 8px currentColor, 8px 8px currentColor; }
+        .icon-terminal { border: 1.5px solid currentColor; border-radius: 3px; }
+        .icon-terminal::before { top: 3.5px; left: 2px; width: 4px; height: 4px; border: solid currentColor; border-width: 1.5px 1.5px 0 0; transform: rotate(45deg); }
+        .icon-terminal::after { top: 8px; left: 7px; width: 4px; height: 1.5px; border-radius: 1px; background: currentColor; }
+        .icon-list::before { top: 3px; left: 1px; width: 2px; height: 2px; border-radius: 1px; background: currentColor; box-shadow: 0 4px currentColor, 0 8px currentColor; }
+        .icon-list::after { top: 3px; left: 5px; width: 10px; height: 2px; border-radius: 1px; background: currentColor; box-shadow: 0 4px currentColor, 0 8px currentColor; }
+        .icon-router::before { inset: 4px 0 3px; border: 1.5px solid currentColor; border-radius: 3px; }
+        .icon-router::after { top: 7.5px; left: 3px; width: 2px; height: 2px; border-radius: 50%; background: currentColor; box-shadow: 4px 0 currentColor, 8px 0 currentColor; }
+        .icon-network::before { top: 2px; left: 6px; width: 5px; height: 5px; border: 1.5px solid currentColor; border-radius: 1px; background: #315cdd; box-shadow: -5px 8px 0 -1px currentColor, 5px 8px 0 -1px currentColor; z-index: 1; }
+        .icon-network::after { top: 6px; left: 3px; width: 11px; height: 6px; border: solid currentColor; border-width: 1.5px 1.5px 0; border-radius: 2px; }
+        .icon-link::before, .icon-link::after { width: 9px; height: 6px; border: 1.5px solid currentColor; border-radius: 4px; transform: rotate(-45deg); }
+        .icon-link::before { top: 3px; right: 0; }
+        .icon-link::after { bottom: 3px; left: 0; }
+        .icon-lock::before { top: 1px; left: 4px; width: 8px; height: 8px; border: 1.5px solid currentColor; border-radius: 5px 5px 0 0; }
+        .icon-lock::after { top: 7px; left: 2px; width: 12px; height: 8px; border: 1.5px solid currentColor; border-radius: 2px; background: #f8faff; }
+        .icon-alert { border: 1.5px solid currentColor; border-radius: 50%; }
+        .icon-alert::before, .icon-alert::after { left: 5.5px; width: 2px; border-radius: 1px; background: currentColor; }
+        .icon-alert::before { top: 2.5px; height: 5px; }
+        .icon-alert::after { top: 9px; height: 2px; }
+
+        @media (max-width: 70rem) {
+            .network-art { opacity: .7; }
+            .network-map { right: -.75rem; transform: translateY(-50%) scale(.84); transform-origin: right center; }
+        }
+
+        @media (max-width: 60rem) {
+            .shell { grid-template-columns: 11.75rem minmax(0, 1fr); }
+            .sidebar { padding-inline: .75rem; }
+            .cards { grid-template-columns: minmax(0, 1fr); }
+            .network-art { opacity: .45; }
+            .network-map { right: -1.75rem; }
+        }
+
+        @media (max-width: 46rem) {
+            .shell { display: block; }
+            .sidebar { position: static; height: auto; padding: 1rem 1.25rem .55rem; border-right: 0; }
+            .brand { margin: 0; }
+            .navigation { display: grid; grid-template-columns: .8fr 1.15fr 1.15fr; gap: .25rem; max-width: 30rem; margin-top: .875rem; }
+            .nav-label, .engine { display: none; }
+            .nav-link { min-height: 2.75rem; justify-content: center; gap: .4rem; padding-inline: .25rem; font-size: .875rem; text-align: center; }
+            .nav-link + .nav-link { margin-top: 0; }
+            .topbar { border-top: 1px solid var(--line); }
+            .topbar-inner { min-height: 3.25rem; }
+            .workspace { padding-block: 1.5rem 2rem; }
+            .hero { margin-top: 1.25rem; }
+        }
+
+        @media (max-width: 34rem) {
+            .nav-link .icon { display: none; }
+            .network-art { display: none; }
+            .hero { background: linear-gradient(120deg, #1b3158, #121f38); }
+            .hero form { margin-top: 1.125rem; }
+            .empty-state { min-height: 12rem; }
+            .card-heading, .queue-footer { padding-inline: 1rem; }
+            .command-list { padding-inline: 1rem; }
+        }
+
+        @media (max-width: 24rem) {
+            .nav-link { font-size: .8125rem; }
+            .topbar-inner { justify-content: flex-start; }
+            .breadcrumb { display: none; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .connect-button:disabled .icon::before { animation: none; }
+        }
+    </style>
 </head>
 <body>
+    {% set command_queue = [
+        ('show version', 'IOS version and device details'),
+        ('show ip interface brief', 'Interface addresses and status'),
+        ('show running-config', 'Active router configuration')
+    ] %}
+    <div class="shell">
+        <aside class="sidebar">
+            <a class="brand" href="#overview">
+                <span class="brand-mark" aria-hidden="true"><span class="icon icon-network"></span></span>
+                <span><strong>RouterOps</strong><small>Network automation</small></span>
+            </a>
 
+            <nav class="navigation" aria-label="Workspace">
+                <p class="nav-label">Workspace</p>
+                <a class="nav-link" href="#overview" aria-current="location"><span class="icon icon-grid" aria-hidden="true"></span>Overview</a>
+                <a class="nav-link" href="#command-output"><span class="icon icon-terminal" aria-hidden="true"></span>Command output</a>
+                <a class="nav-link" href="#command-queue"><span class="icon icon-list" aria-hidden="true"></span>Command queue</a>
+            </nav>
 
-    <h1>Router Automation</h1>
-    <p>Netmiko Router Command Execution</p>
+            <div class="engine">
+                <span class="engine-mark" aria-hidden="true"><span class="icon icon-link"></span></span>
+                <span><strong>Netmiko</strong><small>Connection engine</small></span>
+            </div>
+        </aside>
 
+        <div>
+            <header class="topbar">
+                <div class="topbar-inner">
+                    <p class="breadcrumb"><span>Workspace</span><span class="breadcrumb-divider" aria-hidden="true"></span><strong>Overview</strong></p>
+                    <p class="platform"><span class="icon icon-router" aria-hidden="true"></span>Cisco IOS<span class="platform-separator" aria-hidden="true"></span>Telnet</p>
+                </div>
+            </header>
 
-    <hr>
+            <main class="workspace" id="overview">
+                <header class="page-heading">
+                    <h1>Router Automation</h1>
+                    <p>Collect and review diagnostics from your Cisco IOS router.</p>
+                </header>
 
+                <section class="hero" aria-labelledby="connection-title">
+                    <div class="hero-body">
+                        <p class="run-status" id="run-status" role="status" data-state="{{ 'failed' if error else 'complete' if results else 'idle' }}">
+                            {{ 'Run failed' if error else 'Run complete' if results else 'Ready to connect' }}
+                        </p>
+                        <h2 id="connection-title">Run router diagnostics</h2>
+                        <p class="hero-description">Check the IOS version, interface status, and running configuration.</p>
+                        <form method="post" id="connection-form">
+                            <button class="connect-button" type="submit">
+                                <span class="icon icon-link" aria-hidden="true"></span>
+                                <span class="button-label">{{ 'Try again' if error else 'Run again' if results else 'Connect to router' }}</span>
+                            </button>
+                        </form>
+                    </div>
 
-    <form method="POST">
-        <button type="submit">Connect to Router</button>
-    </form>
+                    <div class="network-art" aria-hidden="true">
+                        <div class="network-map">
+                            <span class="wire wire-top"></span>
+                            <span class="wire wire-bottom"></span>
+                            <span class="wire wire-right"></span>
+                            <span class="network-node node-top"><span class="icon icon-terminal"></span></span>
+                            <span class="network-node node-bottom"><span class="icon icon-list"></span></span>
+                            <span class="network-node node-right"><span class="icon icon-grid"></span></span>
+                            <span class="network-router">
+                                <span class="icon icon-router"></span>
+                                <span class="router-ports"><i></i><i></i><i></i><i></i></span>
+                            </span>
+                        </div>
+                    </div>
+                </section>
 
+                {% if error %}
+                    <div class="connection-error" role="alert">
+                        <span class="icon icon-alert" aria-hidden="true"></span>
+                        <div><strong>Connection error</strong><p>{{ error }}</p></div>
+                    </div>
+                {% endif %}
 
-    {% if error %}
-        <h3 style="color: red;">Connection Error</h3>
-        <p>{{ error }}</p>
-    {% endif %}
+                <div class="cards">
+                    <section class="card output-card" id="command-output" aria-labelledby="output-title">
+                        <header class="card-heading">
+                            <div>
+                                <h2 id="output-title">Command output</h2>
+                                <p>Results from the latest run.</p>
+                            </div>
+                            <span class="count">{{ results|length }} {{ 'result' if results|length == 1 else 'results' }}</span>
+                        </header>
 
+                        {% if results %}
+                            <div class="result-list">
+                                {% for command, output in results.items() %}
+                                    <details class="result"{% if loop.first %} open{% endif %}>
+                                        <summary><span class="icon icon-terminal" aria-hidden="true"></span><code>{{ command }}</code></summary>
+                                        <pre tabindex="0" aria-label="Output for {{ command }}"><code>{{ output }}</code></pre>
+                                    </details>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="empty-state">
+                                <span class="empty-icon" aria-hidden="true"><span class="icon icon-terminal"></span></span>
+                                <strong>No output yet</strong>
+                                <p>{{ 'Try connecting again to collect command output.' if error else 'Connect to your router to see the command results here.' }}</p>
+                            </div>
+                        {% endif %}
+                    </section>
 
-    {% if results %}
-        <h2>Command Results</h2>
+                    <section class="card" id="command-queue" aria-labelledby="queue-title">
+                        <header class="card-heading">
+                            <div>
+                                <h2 id="queue-title">Command queue</h2>
+                                <p>Runs in this order when you connect.</p>
+                            </div>
+                        </header>
+                        <ol class="command-list" role="list">
+                            {% for command, description in command_queue %}
+                                <li>
+                                    <span class="command-order" aria-hidden="true">{{ loop.index }}</span>
+                                    <div><code>{{ command }}</code><p>{{ description }}</p></div>
+                                </li>
+                            {% endfor %}
+                        </ol>
+                        <p class="queue-footer"><span class="icon icon-lock" aria-hidden="true"></span>Read-only commands</p>
+                    </section>
+                </div>
+            </main>
+        </div>
+    </div>
 
+    <script>
+        const form = document.querySelector('#connection-form');
+        const button = form.querySelector('button');
+        const buttonLabel = button.querySelector('.button-label');
+        const status = document.querySelector('#run-status');
+        const initialLabel = buttonLabel.textContent;
+        const initialStatus = status.textContent.trim();
+        const initialState = status.dataset.state;
 
-        {% for command, output in results.items() %}
-            <h3>{{ command }}</h3>
-            <pre>{{ output }}</pre>
-        {% endfor %}
-    {% endif %}
+        form.addEventListener('submit', (event) => {
+            if (button.disabled) {
+                event.preventDefault();
+                return;
+            }
 
+            button.disabled = true;
+            buttonLabel.textContent = 'Running diagnostics…';
+            status.textContent = 'Connecting to router';
+            status.dataset.state = 'pending';
+        });
 
+        window.addEventListener('pageshow', () => {
+            button.disabled = false;
+            buttonLabel.textContent = initialLabel;
+            status.textContent = initialStatus;
+            status.dataset.state = initialState;
+        });
+
+        const navigation = document.querySelectorAll('.nav-link');
+
+        function updateNavigation() {
+            const section = window.location.hash || '#overview';
+            navigation.forEach((link) => {
+                if (link.hash === section) {
+                    link.setAttribute('aria-current', 'location');
+                } else {
+                    link.removeAttribute('aria-current');
+                }
+            });
+        }
+
+        window.addEventListener('hashchange', updateNavigation);
+        updateNavigation();
+    </script>
 </body>
 </html>
